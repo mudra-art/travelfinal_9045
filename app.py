@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY")
+app.secret_key = os.getenv("SECRET_KEY") or "dev-secret-key"  # ✅ FIX
 
 # ================= MYSQL CONNECTION =================
 def get_db():
@@ -38,7 +38,6 @@ def register():
         db = get_db()
         cursor = db.cursor()
 
-        # check email exists
         cursor.execute(
             "SELECT user_id FROM users WHERE email=%s",
             (email,)
@@ -89,18 +88,18 @@ def login():
             return "Invalid Email or Password"
 
     return render_template("login.html")
+
 # ================= BOOKING =================
 @app.route("/booking", methods=["GET", "POST"])
 def booking():
+    if "user_id" not in session:                      # ✅ FIX
+        return redirect(url_for("login"))
+
     if request.method == "POST":
         destination = request.form.get("destination")
         travel_date = request.form.get("date")
-        travelers = request.form.get("travelers")
+        travelers = int(request.form.get("travelers"))  # ✅ FIX
 
-        if not destination or not travel_date or not travelers:
-            return "Form data missing", 400
-
-        # 🔹 INSERT INTO DATABASE (THIS WAS MISSING)
         db = get_db()
         cursor = db.cursor()
 
@@ -110,7 +109,7 @@ def booking():
         """
         cursor.execute(
             sql,
-            (session.get("user_id"), destination, travel_date, travelers)
+            (session["user_id"], destination, travel_date, travelers)
         )
         db.commit()
 
@@ -127,7 +126,6 @@ def booking():
 
     return render_template("booking.html")
 
-
 # ================= CONTACT =================
 @app.route("/contact", methods=["GET", "POST"])
 def contact():
@@ -135,8 +133,6 @@ def contact():
         name = request.form["name"]
         email = request.form["email"]
         message = request.form["message"]
-
-        print("CONTACT FORM SUBMITTED:", name, email, message)
 
         db = get_db()
         cursor = db.cursor()
@@ -153,8 +149,6 @@ def contact():
         return redirect(url_for("home"))
 
     return render_template("contactus.html")
-
-
 
 # ================= LOGOUT =================
 @app.route("/logout")
